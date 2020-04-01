@@ -1,0 +1,66 @@
+name: build
+
+on: 
+  push:
+    branches-ignore:
+      - master
+    tags-ignore:
+      - "*"
+    paths:
+      - "include/*"
+      - "src/*"
+      - "CMakeLists.txt"
+
+jobs:
+  unix: 
+    name: Build on ${{ matrix.os }} with ${{ matrix.compiler }} in ${{ matrix.mode }} mode
+
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-18.04, ubuntu-16.04, macOS-10.15]
+        compiler: [gcc, clang]
+        mode: [Debug, Release]
+    
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Compile
+        working-directory: build
+        env:
+          C: ${{ matrix.compiler }}
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.mode }} ..
+          cmake --build . -j
+
+  windows: 
+    name: Build on ${{ matrix.os }} in ${{ matrix.mode }} mode
+
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2019, windows-2016]
+        mode: [Debug, Release]
+        toolset: [clang-cl, default]
+        include:
+          - toolset: clang-cl
+            toolset-option: -T"ClangCl"
+        exclude:
+          - os: windows-2016
+            toolset: clang-cl
+    
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Compile
+        working-directory: build
+        run: |
+          cmake ${{ matrix.toolset-option }} ..
+          cmake --build . --config ${{ matrix.mode }} -j
+    

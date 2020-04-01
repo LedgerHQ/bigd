@@ -1,0 +1,10 @@
+get_filename_component(BIGD_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+list(APPEND CMAKE_MODULE_PATH ${BIGD_CMAKE_DIR})
+
+if(NOT TARGET BIGD::bigd)
+    include("${BIGD_CMAKE_DIR}/BIGDTargets.cmake)
+endif()
+
+set(BIGD_LIBRARIES BIGD::bigd)

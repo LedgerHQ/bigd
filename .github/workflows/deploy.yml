@@ -1,0 +1,82 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  unix:
+    name: Deploy on ${{ matrix.os }} with ${{ matrix.compiler }}-${{ matrix.compiler-version}} in ${{ matrix.mode }} mode
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-18.04, macOS-10.15]
+        mode: [Debug, RelWithDebInfo, MinSizeRel, Release]
+        compiler: [gcc, clang]
+        compiler-version: ["6.0", 7, 8, 9]
+        exclude:
+          - compiler: gcc
+            compiler-version: "6.0"
+          - compiler: clang
+            compiler-version: 7
+          - os: macOS-10.15
+            compiler: clang
+          - os: macOS-10.15
+            compiler: gcc
+            compiler-version: 7
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install Conan
+        run: pip install conan
+      - name: Create Conan package
+        run: |
+          conan create . ledgerhq/stable \
+            -s compiler=${{ matrix.compiler }} \
+            -s compiler.version=${{ matrix.compiler-version }} \
+            -s compiler.libcxx=libstdc++ \
+            -s build_type=${{ matrix.mode }} \
+            -e CC=${{ matrix.compiler }}-${{ matrix.compiler-version }}
+      - name: Upload Conan package to Bintray
+        run: |
+          conan remote add ledgerhq https://api.bintray.com/conan/ledgerhq/public-conan
+          conan user -p ${{ secrets.BINTRAY_TOKEN }} -r ledgerhq ${{ secrets.BINTRAY_ACCOUNT }}
+          conan upload "bigd/*@ledgerhq/stable" -r=ledgerhq --all -c
+
+  windows:
+    name: Deploy on ${{ matrix.os }} in ${{ matrix.mode }} mode
+
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2019, windows-2016]
+        mode: [Debug, Release, RelWithDebInfo, MinSizeRel]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install Conan
+        run: pip install conan
+      - name: Create Conan package
+        run: conan create . ledgerhq/stable -s build_type=${{ matrix.mode }}
+      - name: Upload Conan package to Bintray
+        run: |
+          conan remote add ledgerhq https://api.bintray.com/conan/ledgerhq/public-conan
+          conan user -p ${{ secrets.BINTRAY_TOKEN }} -r ledgerhq ${{ secrets.BINTRAY_ACCOUNT }}
+          conan upload "bigd/*@ledgerhq/stable" -r=ledgerhq --all -c
